@@ -1,4 +1,8 @@
 <?php
+// This script is dedicated to all my friends who like beautifully written code
+// Because it is the exact opposite
+// :wave: @dorsk
+
 set_time_limit(2);
 
 $host = "192.168.1.213";
@@ -6,7 +10,7 @@ $url = "http://".$host."/api/v1/getState";
 
 $lastTimeFile = "/tmp/lasttime";
 $lastDataFile = "/tmp/lastdata";
-
+$curl_ok = false;
 if (!file_exists($lastTimeFile) || (time() - filemtime($lastTimeFile)) > 10) {
     $ch = curl_init();
 
@@ -24,6 +28,7 @@ if (!file_exists($lastTimeFile) || (time() - filemtime($lastTimeFile)) > 10) {
     if ($result !== false) {
         file_put_contents($lastDataFile, $result);
         touch($lastTimeFile);
+        $curl_ok = true;
     }
 }
 
@@ -32,6 +37,7 @@ $data = json_decode(file_exists($lastDataFile) ? file_get_contents($lastDataFile
 $status = (!file_exists($lastTimeFile) || (time() - filemtime($lastTimeFile)) > 60) ? "stopped" : $data['status'];
 if(!file_exists($lastTimeFile)) die("Server has been unresponsive before cache warmup");
 
+ob_start();
 $position = $data['position'];
 $title = $data['title'];
 $artist = $data['artist'];
@@ -56,8 +62,31 @@ $stream = $data['stream'];
 $updatedb = $data['updatedb'];
 $volatile = $data['volatile'];
 $service = $data['service'];
+$bitrate = $data['bitrate'];
+ob_end_clean();
 
-$img = 'http://'.$host.$albumart; // replace with your image URL
+$trackType = ucfirst($trackType);
+if(strlen($trackType) < 5){ // yes it's horribly bad code
+  $trackType = strtoupper($trackType);
+}
+
+// Now we process the data
+if($bitdepth == ""){
+  $technical = "$trackType - $bitrate";
+}elseif(strtolower($trackType) == "youtube"){
+  $technical = "$samplerate";
+}else{
+  $technical = "$trackType - $bitdepth/$samplerate";
+}
+
+$technical .= "$channels channels";
+
+if (strpos($albumart, "http") !== false) {
+  $img = $albumart;
+} else {
+  $img = 'http://'.$host.$albumart;
+}
+
 $md5 = md5($img);
 $imgfile = "/tmp/image.$md5";
 
@@ -111,6 +140,7 @@ echo "Album Art: $albumart\n"; */
             background-color: black;
             color: white;
             font-family: Arial, sans-serif;
+	    font-size: 1em;
         }
         #nowPlaying {
             text-align: center;
@@ -122,10 +152,16 @@ echo "Album Art: $albumart\n"; */
             object-fit: cover;
         }
 
+	h1, h2, h3, h4, h5, h6 {
+	    font-size: 150%;
+	}
+
+
 	.pause { color: orange; }
 	.stop { color: red; }
     </style>
 </head>
+
 <body>
     <div id="nowPlaying">
 	<h3 class="<?php echo $status; ?>"><?php echo $current_status; ?></h3>
@@ -133,7 +169,7 @@ echo "Album Art: $albumart\n"; */
         <h2 id="song"><?php echo $title; ?></h2>
         <h3 id="artist"><?php echo $artist; ?></h3>
         <h4 id="album"><?php echo $album; ?></h4>
-	<h5 id="info"><?php echo strtoupper($trackType) . " - $bitdepth/$samplerate " ; ?></h5>
+	<h5 id="info"><?php echo $technical; ?></h5>
     </div>
 
     <script>
