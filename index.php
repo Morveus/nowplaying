@@ -1,7 +1,9 @@
 <?php
-$host = "192.168.1.213";
+set_time_limit(2);
 
+$host = "192.168.1.213";
 $url = "http://".$host."/api/v1/getState";
+
 $lastTimeFile = "/tmp/lasttime";
 $lastDataFile = "/tmp/lastdata";
 
@@ -10,10 +12,11 @@ if (!file_exists($lastTimeFile) || (time() - filemtime($lastTimeFile)) > 10) {
 
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 1);
 
     $result = curl_exec($ch);
     if (curl_errno($ch)) {
-        echo 'Error:' . curl_error($ch);
         $result = false;
     }
     curl_close($ch);
@@ -26,8 +29,9 @@ if (!file_exists($lastTimeFile) || (time() - filemtime($lastTimeFile)) > 10) {
 
 $data = json_decode(file_exists($lastDataFile) ? file_get_contents($lastDataFile) : '[]', true);
 
+$status = (!file_exists($lastTimeFile) || (time() - filemtime($lastTimeFile)) > 60) ? "stopped" : $data['status'];
+if(!file_exists($lastTimeFile)) die("Server has been unresponsive before cache warmup");
 
-$status = $data['status'];
 $position = $data['position'];
 $title = $data['title'];
 $artist = $data['artist'];
@@ -54,8 +58,23 @@ $volatile = $data['volatile'];
 $service = $data['service'];
 
 $img = 'http://'.$host.$albumart; // replace with your image URL
-$data = file_get_contents($img);
-$base64 = 'data:image/jpeg;base64,' . base64_encode($data);
+$md5 = md5($img);
+$imgfile = "/tmp/image.$md5";
+
+if($curl_ok && !is_file($imgfile)){
+  $ctx = stream_context_create(array(
+      'http' => array(
+          'timeout' => 2
+          )
+      )
+  );
+
+  $data = file_get_contents($img, false, $ctx);
+  $base64 = 'data:image/jpeg;base64,' . base64_encode($data);
+  file_put_contents($imgfile, $base64);
+}else{
+  $base64 = file_get_contents($imgfile);
+}
 
 $status_class = "";
 $pagetitle = "Now playing";
