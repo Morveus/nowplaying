@@ -3,128 +3,16 @@
 // Because it is the exact opposite
 // :wave: @dorsk
 
-set_time_limit(2);
 
-$host = "192.168.1.213";
-$url = "http://".$host."/api/v1/getState";
+set_time_limit(5);
+require('functions.php');
 
-$lastTimeFile = "/tmp/lasttime";
-$lastDataFile = "/tmp/lastdata";
-$curl_ok = false;
-if (!file_exists($lastTimeFile) || (time() - filemtime($lastTimeFile)) > 10) {
-    $ch = curl_init();
+$currentFolder = __DIR__;
+shell_exec("php $currentFolder/update.php > /dev/null 2>/dev/null &");
 
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 1);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 1);
+if(!file_exists($lastDataFile)) die("Server has been unresponsive before cache warmup");
 
-    $result = curl_exec($ch);
-    if (curl_errno($ch)) {
-        $result = false;
-    }
-    curl_close($ch);
-
-    if ($result !== false) {
-        file_put_contents($lastDataFile, $result);
-        touch($lastTimeFile);
-        $curl_ok = true;
-    }
-}
-
-$data = json_decode(file_exists($lastDataFile) ? file_get_contents($lastDataFile) : '[]', true);
-
-$status = (!file_exists($lastTimeFile) || (time() - filemtime($lastTimeFile)) > 60) ? "stopped" : $data['status'];
-if(!file_exists($lastTimeFile)) die("Server has been unresponsive before cache warmup");
-
-ob_start();
-$position = $data['position'];
-$title = $data['title'];
-$artist = $data['artist'];
-$album = $data['album'];
-$albumart = $data['albumart'];
-$uri = $data['uri'];
-$trackType = $data['trackType'];
-$seek = $data['seek'];
-$duration = $data['duration'];
-$samplerate = $data['samplerate'];
-$bitdepth = $data['bitdepth'];
-$channels = $data['channels'];
-$random = $data['random'];
-$repeat = $data['repeat'];
-$repeatSingle = $data['repeatSingle'];
-$consume = $data['consume'];
-$volume = $data['volume'];
-$dbVolume = $data['dbVolume'];
-$disableVolumeControl = $data['disableVolumeControl'];
-$mute = $data['mute'];
-$stream = $data['stream'];
-$updatedb = $data['updatedb'];
-$volatile = $data['volatile'];
-$service = $data['service'];
-$bitrate = $data['bitrate'];
-ob_end_clean();
-
-$trackType = ucfirst($trackType);
-if(strlen($trackType) < 5){ // yes it's horribly bad code
-  $trackType = strtoupper($trackType);
-}
-
-// Now we process the data
-if($bitdepth == ""){
-  $technical = "$trackType - $bitrate";
-}elseif(strtolower($trackType) == "youtube"){
-  $technical = "$samplerate";
-}else{
-  $technical = "$trackType - $bitdepth/$samplerate";
-}
-
-$technical .= "$channels channels";
-
-if (strpos($albumart, "http") !== false) {
-  $img = $albumart;
-} else {
-  $img = 'http://'.$host.$albumart;
-}
-
-$md5 = md5($img);
-$imgfile = "/tmp/image.$md5";
-
-if($curl_ok && !is_file($imgfile)){
-  $ctx = stream_context_create(array(
-      'http' => array(
-          'timeout' => 2
-          )
-      )
-  );
-
-  $data = file_get_contents($img, false, $ctx);
-  $base64 = 'data:image/jpeg;base64,' . base64_encode($data);
-  file_put_contents($imgfile, $base64);
-}else{
-  $base64 = file_get_contents($imgfile);
-}
-
-$status_class = "";
-$pagetitle = "Now playing";
-switch($status){
-  case "play":
-    $current_status = "Now Playing";
-    break;
-  case "pause":
-    $current_status = "Paused";
-    break;
-  default:
-    $current_status = "Stopped. Last played:";
-    $status = "stop";
-    $pagetitle = "Last played"; 
-    break;
-}
-
-/* echo "Artist: $artist\n";
-echo "Album: $album\n";
-echo "Song: $title\n";
-echo "Album Art: $albumart\n"; */
+require('process.php');
 ?>
 
 <!DOCTYPE html>
@@ -152,10 +40,9 @@ echo "Album Art: $albumart\n"; */
             object-fit: cover;
         }
 
-	h1, h2, h3, h4, h5, h6 {
+	/* h1, h2, h3, h4, h5, h6 {
 	    font-size: 150%;
-	}
-
+	} */
 
 	.pause { color: orange; }
 	.stop { color: red; }
@@ -174,7 +61,7 @@ echo "Album Art: $albumart\n"; */
 
     <script>
     window.onload = function(){
-        setTimeout(function(){ location.reload(); }, 7000);
+       setTimeout(function(){ location.reload(); }, 7000);
     };
     </script>
 
